@@ -1,0 +1,75 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y clang lld llvm cmake ninja-build zip
+
+      - name: Portable tests
+        run: |
+          cmake -S . -B build-test -G Ninja -DPD2CCF_BUILD_PLUGIN=OFF -DBUILD_TESTING=ON
+          cmake --build build-test
+          ctest --test-dir build-test --output-on-failure
+
+      - name: Build Win32 DLL
+        run: ./scripts/build-cross.sh
+
+      - name: Verify PE
+        run: python3 scripts/verify_pe.py build-win32-cross/pd2_cursor_capture.dll
+
+      - name: Package
+        run: ./scripts/package.sh build-win32-cross/pd2_cursor_capture.dll
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PD2-Cursor-Capture-Fix
+          path: dist/PD2-Cursor-Capture-Fix.zip
+
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: PD2-Cursor-Capture-Fix
+          path: dist
+
+      - name: Upload ZIP to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              dist/PD2-Cursor-Capture-Fix.zip \
+              --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              dist/PD2-Cursor-Capture-Fix.zip \
+              --title "$RELEASE_TAG" \
+              --generate-notes
+          fi

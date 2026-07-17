@@ -1,0 +1,11 @@
+{
+    "name": "PD2 Cursor Capture Fix",
+    "description": "Confines the Windows cursor to PAYDAY 2 while the game is focused.",
+    "author": "teich0psia",
+    "version": "0.1.2",
+    "blt_version": 2,
+    "priority": 0,
+    "color": "255 255 255",
+    "undisablable": true,
+    "disable_safe_mode": true
+}

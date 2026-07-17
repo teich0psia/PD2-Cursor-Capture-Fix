@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.20)
+project(pd2_cursor_capture_fix C)
+
+option(PD2CCF_BUILD_PLUGIN "Build the Windows SuperBLT plugin" ON)
+include(CTest)
+
+add_library(pd2ccf_policy STATIC src/cursor_policy.c)
+target_include_directories(pd2ccf_policy PUBLIC include)
+target_compile_features(pd2ccf_policy PUBLIC c_std_99)
+
+if(BUILD_TESTING)
+    add_executable(pd2ccf_policy_tests tests/test_policy.c)
+    target_link_libraries(pd2ccf_policy_tests PRIVATE pd2ccf_policy)
+    add_test(NAME policy COMMAND pd2ccf_policy_tests)
+endif()
+
+if(PD2CCF_BUILD_PLUGIN)
+    if(NOT WIN32)
+        message(FATAL_ERROR "The native plugin requires a Windows target. Use scripts/build-cross.sh on Linux.")
+    endif()
+    add_library(pd2_cursor_capture SHARED src/plugin.c)
+    target_include_directories(pd2_cursor_capture PRIVATE include)
+    target_link_libraries(pd2_cursor_capture PRIVATE pd2ccf_policy user32 kernel32)
+    set_target_properties(pd2_cursor_capture PROPERTIES PREFIX "" OUTPUT_NAME "pd2_cursor_capture")
+endif()
