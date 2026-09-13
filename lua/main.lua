@@ -149,7 +149,7 @@ local function update_lock(self)
     local mouse = get_mouse(high_polling_rate)
     if not mouse then
         if not self.initialized then
-            write_log("mouse controller unavailable; disabling")
+            write_log("mouse unavailable; disabling")
             self.disabled = true
         end
         return

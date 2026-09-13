@@ -31,7 +31,7 @@ local function save_settings()
     end
 
     local file = io.open(SETTINGS_PATH, "w+")
-    if file then
+    if file and json and json.encode then
         file:write(json.encode(settings))
         file:close()
     end
