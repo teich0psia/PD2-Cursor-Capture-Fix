@@ -9,13 +9,25 @@ local function write_log(message)
 end
 
 local state = rawget(_G, "PD2CCF_EngineLock_State")
-
 if not state then
     state = {
         initialized = false,
-        locking = false
+        disabled = false,
+        locking = false,
+        mouse = nil
     }
     _G.PD2CCF_EngineLock_State = state
+else
+    state.disabled = state.disabled or false
+end
+
+local function call_method(object, method_name, ...)
+    local method = object and object[method_name]
+    if type(method) ~= "function" then
+        return false, "missing method: " .. method_name
+    end
+
+    return pcall(method, object, ...)
 end
 
 local function get_mouse()
@@ -27,11 +39,7 @@ local function get_mouse()
         return Input:mouse()
     end)
 
-    if not ok then
-        return nil
-    end
-
-    return mouse
+    return ok and mouse or nil
 end
 
 local function frame_is_active()
@@ -70,65 +78,96 @@ local function menu_is_open()
     return ok and menu ~= nil
 end
 
-local function call_mouse_method(mouse, method_name, ...)
-    local method = mouse and mouse[method_name]
-    if type(method) ~= "function" then
-        return false, "missing method: " .. method_name
-    end
-
-    return pcall(method, mouse, ...)
+local function set_mouse_lock(mouse, locked)
+    return call_method(mouse, "set_lock_mouse", locked)
 end
 
-local function update(self)
-    local mouse = get_mouse()
-    if not mouse then
-        if not self.initialized then
-            write_log("Input:mouse() unavailable; disabling")
-            _G.PD2CCF_EngineLock_PersistStop = true
-        end
+local function release_lock(self, current_mouse)
+    if not self.locking then
+        self.mouse = current_mouse
         return
     end
 
-    if not self.initialized then
-        if type(mouse.set_lock_mouse) ~= "function" then
-            write_log("Input mouse has no set_lock_mouse(); disabling")
-            _G.PD2CCF_EngineLock_PersistStop = true
-            return
+    local previous_mouse = self.mouse
+    if previous_mouse then
+        local ok, err = set_mouse_lock(previous_mouse, false)
+        if not ok then
+            write_log("set_lock_mouse(false) failed: " .. tostring(err))
         end
-
-        self.initialized = true
     end
 
-    local focused = frame_is_active()
-    local should_lock = focused and player_is_active() and not menu_is_open()
+    if current_mouse and current_mouse ~= previous_mouse then
+        local ok, err = set_mouse_lock(current_mouse, false)
+        if not ok then
+            write_log("set_lock_mouse(false) failed: " .. tostring(err))
+        end
+    end
 
-    if should_lock then
-        if not self.locking and type(mouse.acquire) == "function" then
-            local acquire_ok, acquire_err = call_mouse_method(mouse, "acquire")
-            if not acquire_ok then
-                write_log("mouse acquire failed: " .. tostring(acquire_err))
+    self.locking = false
+    self.mouse = current_mouse
+end
+
+local function update_lock(self)
+    if self.disabled then
+        return
+    end
+
+    local mouse = get_mouse()
+    if not mouse then
+        if not self.initialized then
+            self.unavailable = (self.unavailable or 0) + 1
+            if self.unavailable > 30 then -- ~0.5s grace for early-frame nil
+                write_log("mouse unavailable; disabling")
+                self.disabled = true
             end
         end
+        return
+    end
+    self.unavailable = 0
 
-        local ok, err = call_mouse_method(mouse, "set_lock_mouse", true)
-        if not ok then
-            write_log("set_lock_mouse(true) failed; disabling: " .. tostring(err))
-            _G.PD2CCF_EngineLock_PersistStop = true
-            return
-        end
+    if type(mouse.set_lock_mouse) ~= "function" then
+        write_log("Input mouse has no set_lock_mouse(); disabling")
+        self.disabled = true
+        return
+    end
 
-        self.locking = true
-    elseif self.locking then
-        local ok, err = call_mouse_method(mouse, "set_lock_mouse", false)
+    self.initialized = true
+
+    if self.locking and self.mouse and self.mouse ~= mouse then
+        local ok, err = set_mouse_lock(self.mouse, false)
         if not ok then
             write_log("set_lock_mouse(false) failed: " .. tostring(err))
         end
         self.locking = false
     end
+
+    local should_lock = frame_is_active() and player_is_active() and not menu_is_open()
+    if not should_lock then
+        release_lock(self, mouse)
+        return
+    end
+
+    if not self.locking and type(mouse.acquire) == "function" then
+        local ok, err = call_method(mouse, "acquire")
+        if not ok then
+            write_log("mouse acquire failed: " .. tostring(err))
+        end
+    end
+
+    local ok, err = set_mouse_lock(mouse, true)
+    if not ok then
+        write_log("set_lock_mouse(true) failed; disabling: " .. tostring(err))
+        self.disabled = true
+        release_lock(self, mouse)
+        return
+    end
+
+    self.locking = true
+    self.mouse = mouse
 end
 
-local ok, err = pcall(update, state)
+local ok, err = pcall(update_lock, state)
 if not ok then
     write_log("runtime error; disabling: " .. tostring(err))
-    _G.PD2CCF_EngineLock_PersistStop = true
+    state.disabled = true
 end
