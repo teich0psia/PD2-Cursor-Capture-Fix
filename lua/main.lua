@@ -1,7 +1,3 @@
-if rawget(_G, "PD2CCF_EngineLock_PersistStop") then
-    return
-end
-
 local function write_log(message)
     if type(_G.log) == "function" then
         _G.log("[PD2CCF] " .. tostring(message))
