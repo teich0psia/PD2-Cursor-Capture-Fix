@@ -149,11 +149,15 @@ local function update_lock(self)
     local mouse = get_mouse(high_polling_rate)
     if not mouse then
         if not self.initialized then
-            write_log("mouse unavailable; disabling")
-            self.disabled = true
+            self.unavailable = (self.unavailable or 0) + 1
+            if self.unavailable > 30 then -- ~0.5s grace for early-frame nil
+                write_log("mouse unavailable; disabling")
+                self.disabled = true
+            end
         end
         return
     end
+    self.unavailable = 0
 
     if type(mouse.set_lock_mouse) ~= "function" then
         write_log("mouse controller has no set_lock_mouse(); disabling")
