@@ -1,3 +1,6 @@
+-- NOTE: mod.txt's persist "global" (PD2CCF_EngineLock_PersistStop) is kept
+-- for BLT schema compatibility; nothing sets it. state.disabled below is
+-- the single stop mechanism.
 local function write_log(message)
     if type(_G.log) == "function" then
         _G.log("[PD2CCF] " .. tostring(message))
