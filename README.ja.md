@@ -35,4 +35,4 @@ PAYDAY 2/
 
 ## ライセンス
 
-GNU General Public License v3.0。詳細は [LICENSE](LICENSE) を参照してください。
+MIT License。詳細は [LICENSE](LICENSE) を参照してください。

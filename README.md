@@ -35,4 +35,4 @@ PAYDAY 2/
 
 ## License
 
-GNU General Public License v3.0. See [LICENSE](LICENSE).
+MIT License. See [LICENSE](LICENSE).
