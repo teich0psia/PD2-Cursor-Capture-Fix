@@ -27,11 +27,23 @@ PAYDAY 2/
 └─ mods/
    └─ PD2-Cursor-Capture-Fix/
       ├─ mod.txt
-      └─ lua/
-         └─ main.lua
+      ├─ lua/
+      │  ├─ main.lua
+      │  └─ menu.lua
+      ├─ menu/
+      │  └─ options.json
+      └─ loc/
+         ├─ en.txt
+         └─ ja.txt
 ```
 
 3. PAYDAY 2を起動、または再起動します。
+
+## 設定
+
+**オプション → Mod Options → PD2 Cursor Capture Fix** から設定できます。
+
+**高ポーリングレートマウス対応** は初期状態では無効です。4000 Hz / 8000 Hzなどのマウスでカーソルが抜ける場合に有効にしてください。有効にすると、1フレーム内の追加タイミングでもマウスロックを再適用します。設定は即時反映され、次回起動時にも保持されます。
 
 ## ライセンス
 

@@ -1,0 +1,6 @@
+{
+  "pd2ccf_options_title": "PD2 Cursor Capture Fix",
+  "pd2ccf_options_desc": "カーソル固定の動作を設定します。",
+  "pd2ccf_high_polling_title": "高ポーリングレートマウス対応",
+  "pd2ccf_high_polling_desc": "複数のフレーム処理段階でマウスロックを再適用します。4000 Hz / 8000 Hzなどでカーソルが抜ける場合に有効にしてください。"
+}

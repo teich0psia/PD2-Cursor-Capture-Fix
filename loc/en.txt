@@ -1,0 +1,6 @@
+{
+  "pd2ccf_options_title": "PD2 Cursor Capture Fix",
+  "pd2ccf_options_desc": "Configure cursor capture behavior.",
+  "pd2ccf_high_polling_title": "High polling rate mouse support",
+  "pd2ccf_high_polling_desc": "Reinforces the mouse lock across multiple frame phases. Enable this if the cursor can still escape with 4000 Hz or 8000 Hz polling rates."
+}

@@ -2,6 +2,26 @@ if rawget(_G, "PD2CCF_EngineLock_PersistStop") then
     return
 end
 
+local SETTINGS_PATH = (SavePath or "mods/saves/") .. "PD2-Cursor-Capture-Fix.json"
+
+local settings = rawget(_G, "PD2CCF_Settings")
+if not settings then
+    settings = {
+        high_polling_rate = false
+    }
+    _G.PD2CCF_Settings = settings
+end
+
+if not rawget(_G, "PD2CCF_SettingsLoaded") then
+    if io.file_is_readable and io.file_is_readable(SETTINGS_PATH) and io.load_as_json then
+        local ok, data = pcall(io.load_as_json, SETTINGS_PATH)
+        if ok and type(data) == "table" and type(data.high_polling_rate) == "boolean" then
+            settings.high_polling_rate = data.high_polling_rate
+        end
+    end
+    _G.PD2CCF_SettingsLoaded = true
+end
+
 local function write_log(message)
     if type(_G.log) == "function" then
         _G.log("[PD2CCF] " .. tostring(message))
@@ -9,16 +29,30 @@ local function write_log(message)
 end
 
 local state = rawget(_G, "PD2CCF_EngineLock_State")
-
 if not state then
     state = {
         initialized = false,
-        locking = false
+        disabled = false,
+        locking = false,
+        mouse = nil,
+        hooks = {}
     }
     _G.PD2CCF_EngineLock_State = state
+else
+    state.disabled = state.disabled or false
+    state.hooks = state.hooks or {}
 end
 
-local function get_mouse()
+local function call_method(object, method_name, ...)
+    local method = object and object[method_name]
+    if type(method) ~= "function" then
+        return false, "missing method: " .. method_name
+    end
+
+    return pcall(method, object, ...)
+end
+
+local function get_input_mouse()
     if not Input or type(Input.mouse) ~= "function" then
         return nil
     end
@@ -27,11 +61,18 @@ local function get_mouse()
         return Input:mouse()
     end)
 
-    if not ok then
-        return nil
+    return ok and mouse or nil
+end
+
+local function get_mouse(high_polling_rate)
+    if high_polling_rate and managers and managers.controller and type(managers.controller.get_mouse_controller) == "function" then
+        local ok, mouse = pcall(managers.controller.get_mouse_controller, managers.controller)
+        if ok and mouse and type(mouse.set_lock_mouse) == "function" then
+            return mouse
+        end
     end
 
-    return mouse
+    return get_input_mouse()
 end
 
 local function frame_is_active()
@@ -70,65 +111,144 @@ local function menu_is_open()
     return ok and menu ~= nil
 end
 
-local function call_mouse_method(mouse, method_name, ...)
-    local method = mouse and mouse[method_name]
-    if type(method) ~= "function" then
-        return false, "missing method: " .. method_name
-    end
-
-    return pcall(method, mouse, ...)
+local function set_mouse_lock(mouse, locked)
+    return call_method(mouse, "set_lock_mouse", locked)
 end
 
-local function update(self)
-    local mouse = get_mouse()
+local function release_lock(self, current_mouse)
+    if not self.locking then
+        self.mouse = current_mouse
+        return
+    end
+
+    local previous_mouse = self.mouse
+    if previous_mouse then
+        local ok, err = set_mouse_lock(previous_mouse, false)
+        if not ok then
+            write_log("set_lock_mouse(false) failed: " .. tostring(err))
+        end
+    end
+
+    if current_mouse and current_mouse ~= previous_mouse then
+        local ok, err = set_mouse_lock(current_mouse, false)
+        if not ok then
+            write_log("set_lock_mouse(false) failed: " .. tostring(err))
+        end
+    end
+
+    self.locking = false
+    self.mouse = current_mouse
+end
+
+local function update_lock(self)
+    if self.disabled then
+        return
+    end
+
+    local high_polling_rate = settings.high_polling_rate == true
+    local mouse = get_mouse(high_polling_rate)
     if not mouse then
         if not self.initialized then
-            write_log("Input:mouse() unavailable; disabling")
-            _G.PD2CCF_EngineLock_PersistStop = true
+            write_log("mouse controller unavailable; disabling")
+            self.disabled = true
         end
         return
     end
 
-    if not self.initialized then
-        if type(mouse.set_lock_mouse) ~= "function" then
-            write_log("Input mouse has no set_lock_mouse(); disabling")
-            _G.PD2CCF_EngineLock_PersistStop = true
-            return
-        end
-
-        self.initialized = true
+    if type(mouse.set_lock_mouse) ~= "function" then
+        write_log("mouse controller has no set_lock_mouse(); disabling")
+        self.disabled = true
+        return
     end
 
-    local focused = frame_is_active()
-    local should_lock = focused and player_is_active() and not menu_is_open()
+    self.initialized = true
 
-    if should_lock then
-        if not self.locking and type(mouse.acquire) == "function" then
-            local acquire_ok, acquire_err = call_mouse_method(mouse, "acquire")
-            if not acquire_ok then
-                write_log("mouse acquire failed: " .. tostring(acquire_err))
-            end
-        end
-
-        local ok, err = call_mouse_method(mouse, "set_lock_mouse", true)
-        if not ok then
-            write_log("set_lock_mouse(true) failed; disabling: " .. tostring(err))
-            _G.PD2CCF_EngineLock_PersistStop = true
-            return
-        end
-
-        self.locking = true
-    elseif self.locking then
-        local ok, err = call_mouse_method(mouse, "set_lock_mouse", false)
+    if self.locking and self.mouse and self.mouse ~= mouse then
+        local ok, err = set_mouse_lock(self.mouse, false)
         if not ok then
             write_log("set_lock_mouse(false) failed: " .. tostring(err))
         end
         self.locking = false
     end
+
+    local should_lock = frame_is_active() and player_is_active() and not menu_is_open()
+    if not should_lock then
+        release_lock(self, mouse)
+        return
+    end
+
+    if not self.locking and type(mouse.acquire) == "function" then
+        local ok, err = call_method(mouse, "acquire")
+        if not ok then
+            write_log("mouse acquire failed: " .. tostring(err))
+        end
+    end
+
+    local ok, err = set_mouse_lock(mouse, true)
+    if not ok then
+        write_log("set_lock_mouse(true) failed; disabling: " .. tostring(err))
+        self.disabled = true
+        release_lock(self, mouse)
+        return
+    end
+
+    self.locking = true
+    self.mouse = mouse
 end
 
-local ok, err = pcall(update, state)
-if not ok then
-    write_log("runtime error; disabling: " .. tostring(err))
-    _G.PD2CCF_EngineLock_PersistStop = true
+local function safe_update(extra_phase)
+    if extra_phase and settings.high_polling_rate ~= true then
+        return
+    end
+
+    local ok, err = pcall(update_lock, state)
+    if not ok then
+        write_log("runtime error; disabling: " .. tostring(err))
+        state.disabled = true
+    end
 end
+
+local function install_phase_hooks()
+    if not Hooks then
+        return
+    end
+
+    -- Extra post-phase locks reduce the time window in which the engine can
+    -- override cursor capture after the normal persist-script update.
+    if GameSetup then
+        if not state.hooks.game_update and type(GameSetup.update) == "function" then
+            Hooks:PostHook(GameSetup, "update", "PD2CCF.HighPolling.PostGameUpdate", function()
+                safe_update(true)
+            end)
+            state.hooks.game_update = true
+        end
+
+        if not state.hooks.game_end_update and type(GameSetup.end_update) == "function" then
+            Hooks:PostHook(GameSetup, "end_update", "PD2CCF.HighPolling.PostGameEndUpdate", function()
+                safe_update(true)
+            end)
+            state.hooks.game_end_update = true
+        end
+    end
+
+    if Setup then
+        if not state.hooks.render and type(Setup.render) == "function" then
+            Hooks:PostHook(Setup, "render", "PD2CCF.HighPolling.PostRender", function()
+                safe_update(true)
+            end)
+            state.hooks.render = true
+        end
+
+        if not state.hooks.end_frame and type(Setup.end_frame) == "function" then
+            Hooks:PostHook(Setup, "end_frame", "PD2CCF.HighPolling.PostEndFrame", function()
+                safe_update(true)
+            end)
+            state.hooks.end_frame = true
+        end
+    end
+end
+
+if settings.high_polling_rate == true then
+    install_phase_hooks()
+end
+safe_update(false)

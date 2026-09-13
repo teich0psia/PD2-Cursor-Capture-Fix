@@ -27,11 +27,23 @@ PAYDAY 2/
 └─ mods/
    └─ PD2-Cursor-Capture-Fix/
       ├─ mod.txt
-      └─ lua/
-         └─ main.lua
+      ├─ lua/
+      │  ├─ main.lua
+      │  └─ menu.lua
+      ├─ menu/
+      │  └─ options.json
+      └─ loc/
+         ├─ en.txt
+         └─ ja.txt
 ```
 
 3. Start or restart PAYDAY 2.
+
+## Settings
+
+Open **Options → Mod Options → PD2 Cursor Capture Fix**.
+
+**High polling rate mouse support** is disabled by default. Enable it if the cursor can still escape with a 4000 Hz or 8000 Hz mouse. When enabled, the mod reinforces the mouse lock at additional points during each frame. The setting applies immediately and is saved between launches.
 
 ## License
 

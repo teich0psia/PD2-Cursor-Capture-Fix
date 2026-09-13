@@ -1,0 +1,17 @@
+{
+  "menu_id": "pd2ccf_options",
+  "parent_menu_id": "blt_options",
+  "title": "pd2ccf_options_title",
+  "description": "pd2ccf_options_desc",
+  "items": [
+    {
+      "type": "toggle",
+      "id": "high_polling_rate",
+      "title": "pd2ccf_high_polling_title",
+      "description": "pd2ccf_high_polling_desc",
+      "callback": "PD2CCF_ToggleHighPolling",
+      "value": "high_polling_rate",
+      "default_value": false
+    }
+  ]
+}
