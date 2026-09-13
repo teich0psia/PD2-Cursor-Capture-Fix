@@ -1,0 +1,17 @@
+{
+  "name": "PD2 Cursor Capture Fix",
+  "description": "Re-applies Diesel's native mouse lock during gameplay to prevent cursor escape on multi-monitor setups.",
+  "author": "teich0psia",
+  "version": "0.2.0-engine-lock-test1",
+  "blt_version": 2,
+  "priority": 0,
+  "color": "255 255 255",
+  "undisablable": true,
+  "disable_safe_mode": true,
+  "persist_scripts": [
+    {
+      "global": "PD2CCF_EngineLock_PersistStop",
+      "script_path": "lua/main.lua"
+    }
+  ]
+}
