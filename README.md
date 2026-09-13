@@ -129,4 +129,4 @@ ctest --test-dir build-test --output-on-failure
 
 ## License
 
-GNU General Public License v3.0. See [LICENSE](LICENSE).
+MIT License. See [LICENSE](LICENSE).
